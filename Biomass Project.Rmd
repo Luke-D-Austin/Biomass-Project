@@ -1,0 +1,115 @@
+---
+title: "Biomass Project"
+author: "Luke Austin"
+output: html_document
+---
+
+
+A greenhouse study was done to examine the effect of three herbicides (A, B or C) and two water regimes (Low or High) for two plant types (Grass or Forb).  The response variable is biomass.  There are three reps per treatment combination for a total of 36 observations.  Each observation was a potted plant.  The 36 pots were randomly assigned without restriction to locations in the greenhouse.  The data was obtained from coursework.
+
+# 3-Way Model
+
+First, fit the three-way model with all interactions and show the Type 3 ANOVA table. Then, use residual diagnostic plots to check whether model assumptions are satisfied. 
+
+```{r, message = FALSE}
+biomass<- read.csv("C:/Users/austi/OneDrive/Desktop/Portfolio/Biomass.csv")
+#Check to make sure things are defined as factors
+str(biomass)
+#Change contrasts options to get meaningful type 3 tests!
+options(contrasts = c("contr.sum", "contr.poly"))
+#fit the model
+Bio.Model1<- lm(Biomass~Type*Herb*Water, data = biomass)
+summary(Bio.Model1)
+#Show the Type 3 ANOVA model of our data
+library(car)
+Anova(Bio.Model1, type = 3)
+#We do find evidence of a 3-way interaction
+#Create residual plots
+par(mfrow = c(1, 2))
+plot(Bio.Model1, which = c(1:2))
+```
+
+
+We use the residuals vs fitted plot to assess equal variance. Most values are within +-2 residuals, which is good, but most points are above 0 residuals, which makes us question the equal variance assumption. The Q-Q plot of residuals tests the normality assumption, which we also have some concerns about, as the residuals deviate from the line at the quantiles further from 0. The values in the quantiles nearest 0 look good, but this assumption is definitely something to be cautious of.
+
+
+Create a summary graph to further enhance understanding.
+
+```{r, fig.width = 5, fig.height = 3}
+library(emmeans)
+emmip(Bio.Model1, Water ~ Herb | Type, CIs = TRUE)
+```
+
+
+
+Next, use emmeans to calculate pairwise comparisons of Water (High vs Low) for each level of Herb and Type.
+
+```{r}
+emout1 <- emmeans(Bio.Model1, ~ Water|Herb*Type)
+pairs(emout1)
+```
+
+There is a significant difference (using alpha=0.05) between High and Low water levels in all grass plant types, with High water level having a higher biomass than low for herbicide A and B and a lower biomass for herbicide C.  
+
+# In this next section, we will reduce to only look at the Forb plant type
+
+Fit a two-way model (including interaction) for Forb plant type only. Show the Type 3 ANOVA table. Consider the diagnostics plots and whether model assumptions are better satisfied.
+
+
+```{r}
+options(contrasts = c("contr.sum", "contr.poly"))
+Bio.ModelForb<- lm(Biomass~Herb*Water, 
+                   data = biomass[biomass$Type=="Forb",])
+Anova(Bio.ModelForb, type=3)
+par(mfrow = c(1, 2))
+plot(Bio.ModelForb, which = c(1:2))
+```
+
+
+Yes, the diagnostic plots here indicate the model assumptions are better satisfied. The residuals vs. fitted plot checking the equal variance assumption looks more balanced, and the Q-Q plot of residuals checking the normality assumption appears more linear, which is what we would hope for.
+
+Now, use emmeans to calculate pairwise comparisons of Water (High vs Low) for each level of Herb. Then follow similar steps to calculate the comparison of Water (High vs Low) averaging over the levels of Herb. Which has higher power and why?
+
+
+```{r}
+emoutForbWater1<- emmeans(Bio.ModelForb, ~Water|Herb)
+pairs(emoutForbWater1)
+emoutForbWater2<- emmeans(Bio.ModelForb, ~Water)
+pairs(emoutForbWater2)
+```
+
+The main effect comparison (second output) has a higher power than the interaction comparison (first outplut) as noticed because it has a lower SE for the comparisons. Both show a significant difference in biomass between High and Low Water across all herbicide treatments and when averaged. 
+
+
+# Now in this next section, we will reduce to only look at the Grass plant type
+
+Now fit a two-way model (including interaction) for Grass plant type only. Show the Type 3 ANOVA table. Once again consider the diagnostics plots and whether model assumptions are better satisfied.
+
+
+```{r}
+options(contrasts = c("contr.sum", "contr.poly"))
+Bio.ModelGrass<- lm(Biomass~Herb*Water, 
+                   data = biomass[biomass$Type=="Grass",])
+Anova(Bio.ModelGrass, type=3)
+par(mfrow = c(1, 2))
+plot(Bio.ModelGrass, which = c(1:2))
+```
+
+The assumption of equal variance from the Residuals vs. fitted plot is better satisfied as the data is more balanced on either side of 0 for the residuals and values are still within +-2 residuals. The Q-Q plot of residuals which tests the normality assumption is better satisfied as well, although the standardized residuals from theoretical quantiles 1-2 are still not fitting as well as we'd like. I would still definitely consider it an improvement compared to the diagnostic plots in Q2.
+
+After doing this, we can use  emmeans to calculate pairwise comparisons of Water (High vs Low) for each level of Herb. We will not calculate the comparison of water averaging over levels of Herb. In this case we have evidence of an interaction, so we can not average over the levels of Herb. We would average over the levels of Herb when we are testing Herb as a main effect (no interaction), but that is not the goal here.
+
+```{r}
+emoutGWater<- emmeans(Bio.ModelGrass, ~Water|Herb)
+pairs(emoutGWater)
+```
+We see that the High water level on average has a higher biomass in Grass plant types and than those receiving Low water levels for Herbicide A and B treatment, but the opposite is true for Herbicide 3.
+
+# Comparing the Different Types of Models
+
+Now, compare the three-way model to the separate two-way models.
+
+One benefit of splitting the Analysis by type is that the assumptions of equal variance and normality are met more than when the data is not split. The plots in when looking at only Forb plant type and only Grass plant type validate these assumptions more than the plots for the 3-way model, which indicates it might be faulty.
+One weakness of splitting the analysis by type compared the the full 3-way model is that our Residual df is lower for the split analysis (df=12 in each) than for the 3way ANOVA model (df=24). This means that the split analysis has reduced power compared to the full 3-way ANOVA model.
+
+
